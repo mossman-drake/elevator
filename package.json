@@ -1,0 +1,24 @@
+{
+  "name": "elevator",
+  "version": "1.0.0",
+  "description": "Personal solutions to https://play.elevatorsaga.com/ game",
+  "main": "elevator.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build": "./node_modules/typescript/bin/tsc elevator.ts"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/mossman-drake/elevator.git"
+  },
+  "author": "mossman-drake",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/mossman-drake/elevator/issues"
+  },
+  "homepage": "https://github.com/mossman-drake/elevator#readme",
+  "dependencies": {},
+  "devDependencies": {
+    "typescript": "^4.0.5"
+  }
+}
