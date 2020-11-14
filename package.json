@@ -5,7 +5,8 @@
   "main": "elevator.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "./node_modules/typescript/bin/tsc elevator.ts"
+    "build": "./node_modules/typescript/bin/tsc --project ./",
+    "postbuild": "cp solution/elevator.js solution/elevator_solution & perl -0777 -i -pe 's/(\\A(.|\\n)*solution = |;\\n\\Z)//g' solution/elevator_solution"
   },
   "repository": {
     "type": "git",
