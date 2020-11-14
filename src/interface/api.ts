@@ -1,5 +1,4 @@
-
-interface elevator {
+export interface elevator {
     /** Queue the elevator to go to specified floor number. If you specify true as second argument, the elevator will go
      * to that floor directly, and then go to any other queued floors. */
     goToFloor: (floorNum: number, addToBeginning?: boolean) => void;
@@ -42,7 +41,7 @@ interface elevator {
     }
 }
 
-interface floor {
+export interface floor {
     /** Gets the floor number of the floor object. */
     floorNum: () => number;
     on: {
@@ -55,26 +54,9 @@ interface floor {
     }
 }
 
-interface solution {
+export interface solution {
     /** called when the challenge starts */
     init: (elevators: elevator[], floors: floor[]) => void;
     /** called repeatedly during the challenge */
     update: (dt: number, elevators: elevator[], floors: floor[]) => void;
 }
-
-const solution: solution =
-{
-    init: function (elevators, floors) {
-        var elevator = elevators[0]; // Let's use the first elevator
-
-        // Whenever the elevator is idle (has no more queued destinations) ...
-        elevator.on("idle", function () {
-            // let's go to all the floors (or did we forget one?)
-            elevator.goToFloor(0);
-            elevator.goToFloor(1);
-        });
-    },
-    update: function (dt, elevators, floors) {
-        // We normally don't need to do anything here
-    }
-};
