@@ -6,6 +6,7 @@ interface elevatorState {
     destinationQueue: elevator['destinationQueue'];
     pressedFloors: ReturnType<elevator['getPressedFloors']>;
     loadFactor: ReturnType<elevator['loadFactor']>;
+    [fieldName: string]: number | string | number[];
 }
 interface elevatorExtensions {
     /** Convenience function for getting the number of an elevator */
@@ -63,5 +64,21 @@ const solution: solutionWithExtensions =
     },
     update: function (dt, elevators, floors) {
         time += dt;
+        // Check what has changed since last update
+        elevators.forEach((elevator) => {
+            const currentState = elevator.getState();
+            const changedFields: string[] = [];
+            Object.keys(currentState).forEach((fieldName) => {
+                if (String(currentState[fieldName]) !== String(elevator.previousState[fieldName])) {
+                    changedFields.push(fieldName)
+                }
+            })
+            if (changedFields.length > 0) {
+                console.log(`[${time.toFixed(3)}]: Elevator (${elevator.num})\n` + changedFields.map((fieldName) =>
+                    `\t(${fieldName}) changed: [${elevator.previousState[fieldName]} => ${currentState[fieldName]}]`
+                ).join('\n'));
+                elevator.previousState = elevator.getState();
+            }
+        });
     }
 };
