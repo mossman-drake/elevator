@@ -2,11 +2,11 @@ import { elevator, floor } from 'interface/api';
 
 interface elevatorExtensions {
     /** Convenience function for getting the number of an elevator */
-    num: number,
+    num: number;
 }
 interface floorExtensions {
     /** Convenience function for getting the floor number. ! Not to be modified ! */
-    num: number,
+    num: number;
 }
 interface solutionWithExtensions {
     /** called when the challenge starts */
