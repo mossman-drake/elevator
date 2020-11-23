@@ -35,9 +35,9 @@ export interface elevator {
         (event: "floor_button_pressed", handler: (floorNum: number) => void): void;
         /** Set the handler to be triggered slightly before the elevator will pass a floor. A good time to decide
          * whether to stop at that floor. Note that this event is not triggered for the destination floor. */
-        (event: "passing_floor", handler: (floorNum?: number, direction?: "up" | "down") => void): void;
+        (event: "passing_floor", handler: (floorNum: number, direction: "up" | "down") => void): void;
         /** Set the handler to be triggered when the elevator has arrived at a floor. */
-        (event: "stopped_at_floor", handler: (floorNum?: number, direction?: "up" | "down") => void): void;
+        (event: "stopped_at_floor", handler: (floorNum: number, direction: "up" | "down") => void): void;
     }
 }
 
