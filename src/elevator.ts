@@ -26,15 +26,31 @@ interface solutionWithExtensions {
     /** called repeatedly during the challenge */
     update: (dt: number, elevators: (elevator & elevatorExtensions)[], floors: (floor & floorExtensions)[]) => void;
 }
+interface request {
+    floorNum: number;
+    creationTime: number;
+    claimTime?: number;
+    fulfillmentTime?: number;
+}
+interface travelRequest {
+    pickup: request & {
+        direction: 'up' | 'down'
+    };
+    dropoff: request;
+}
 
 // Globals
 let time: number;
+let pickupRequests: travelRequest['pickup'][];
+
+let handleNewPickupRequest: (request: travelRequest['pickup']) => void;
 
 const solution: solutionWithExtensions =
 {
     init: function (baseElevators, baseFloors) {
         // Init Globals
         time = 0;
+        pickupRequests = [];
         // Add customizations to objects
         const elevators = baseElevators.map((elevator, index) => {
             let getState = () => ({
@@ -56,11 +72,39 @@ const solution: solutionWithExtensions =
         } as floorExtensions));
 
         // Logic
+        handleNewPickupRequest = function(request) {
+            // pickupRequests.push(request);
+            // If the elevator is currently waiting, make sure it gets the task.
+            elevators[0].goToFloor(request.floorNum);
+        }
+
         elevators.forEach((elevator) => {
             elevator.on("idle", () => {
-                floors.forEach((floor) => elevator.goToFloor(floor.floorNum()));
-            })
+                // floors.forEach((floor) => elevator.goToFloor(floor.floorNum()));
+            });
+            elevator.on("floor_button_pressed", (floorNum) => {
+                elevator.goToFloor(floorNum);
+            });
+            elevator.on("passing_floor", (floorNum) => {
+                
+            });
+            elevator.on("stopped_at_floor", (floorNum) => {
+                
+            });
         });
+        floors.forEach((floor) => {
+            let createPickupRequest = (direction: travelRequest['pickup']['direction']) => ({
+                creationTime: time, // REVISIT: Is this capturing time correctly?
+                direction,
+                floorNum: floor.num,
+            });
+            floor.on('up_button_pressed', () => {
+                handleNewPickupRequest(createPickupRequest('up'));
+            })
+            floor.on('down_button_pressed', () => {
+                handleNewPickupRequest(createPickupRequest('down'));
+            })
+        })
     },
     update: function (dt, elevators, floors) {
         time += dt;
