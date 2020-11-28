@@ -56,7 +56,7 @@ const solution: solutionWithExtensions =
             let getState = () => ({
                 currentFloor: elevator.currentFloor(),
                 destinationDirection: elevator.destinationDirection(),
-                destinationQueue: elevator.destinationQueue,
+                destinationQueue: [...elevator.destinationQueue], // Array copy
                 loadFactor: elevator.loadFactor(),
                 pressedFloors: elevator.getPressedFloors(),
             });
