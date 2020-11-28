@@ -39,17 +39,20 @@ interface travelRequest {
     dropoff: request;
 }
 
-// Globals
+// Global declarations (Here to satisfy typescript; Need to be initialized in init; automatically removed on build)
 let time: number;
 let pickupRequests: travelRequest['pickup'][];
 
 let handleNewPickupRequest: (request: travelRequest['pickup']) => void;
+/** Get the number of second that have passed in the game rounded to 3 decimal places */
+let getTime: () => number;
 
 const solution: solutionWithExtensions =
 {
     init: function (baseElevators, baseFloors) {
         // Init Globals
         time = 0;
+        getTime = () => Math.round(time * 1000) / 1000;
         pickupRequests = [];
         // Add customizations to objects
         const elevators = baseElevators.map((elevator, index) => {
@@ -60,12 +63,11 @@ const solution: solutionWithExtensions =
                 loadFactor: elevator.loadFactor(),
                 pressedFloors: elevator.getPressedFloors(),
             });
-            const extensions: elevatorExtensions = {
+            return Object.assign(elevator, {
                 num: index,
                 getState,
                 previousState: getState(), // Setting Initial State
-            };
-            return Object.assign(elevator, extensions)
+            });
         });
         const floors = baseFloors.map((floor, index) => Object.assign(floor, {
             num: index,
@@ -73,6 +75,7 @@ const solution: solutionWithExtensions =
 
         // Logic
         handleNewPickupRequest = function(request) {
+            console.log("New Pickup Request:\n", request);
             // pickupRequests.push(request);
             // If the elevator is currently waiting, make sure it gets the task.
             elevators[0].goToFloor(request.floorNum);
@@ -94,7 +97,7 @@ const solution: solutionWithExtensions =
         });
         floors.forEach((floor) => {
             let createPickupRequest = (direction: travelRequest['pickup']['direction']) => ({
-                creationTime: time, // REVISIT: Is this capturing time correctly?
+                creationTime: getTime(),
                 direction,
                 floorNum: floor.num,
             });
@@ -111,18 +114,19 @@ const solution: solutionWithExtensions =
         // Check what has changed since last update
         elevators.forEach((elevator) => {
             const currentState = elevator.getState();
-            const changedFields: string[] = [];
+            let changedFields: string[] = [];
             Object.keys(currentState).forEach((fieldName) => {
                 if (String(currentState[fieldName]) !== String(elevator.previousState[fieldName])) {
                     changedFields.push(fieldName)
                 }
-            })
+            });
+            changedFields = changedFields.filter((fieldName) => !['currentFloor'].includes(fieldName));
             if (changedFields.length > 0) {
-                console.log(`[${time.toFixed(3)}]: Elevator (${elevator.num})\n` + changedFields.map((fieldName) =>
-                    `\t(${fieldName}) changed: [${elevator.previousState[fieldName]} => ${currentState[fieldName]}]`
+                console.log(`[${getTime()}]: Elevator (${elevator.num}) changes:\n` + changedFields.map((fieldName) =>
+                    `\t(${(fieldName+'):').padEnd(22)} [${elevator.previousState[fieldName]} => ${currentState[fieldName]}]`
                 ).join('\n'));
-                elevator.previousState = elevator.getState();
             }
+            elevator.previousState = elevator.getState();
         });
     }
 };
