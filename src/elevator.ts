@@ -15,6 +15,8 @@ interface elevatorExtensions {
     previousState: elevatorState;
     /** Retrieve the current state of the elevator */
     getState: () => elevatorState;
+    claimRequest: (request: travelRequest['pickup']) => void;
+    requests: travelRequest[];
 }
 interface floorExtensions {
     /** Convenience function for getting the floor number. ! Not to be modified ! */
@@ -34,9 +36,10 @@ interface request {
 }
 interface travelRequest {
     pickup: request & {
-        direction: 'up' | 'down'
+        direction: 'up' | 'down';
+        claimingElevator?: number;
     };
-    dropoff: request;
+    dropoff?: request;
 }
 
 // Global declarations (Here to satisfy typescript; Need to be initialized in init; automatically removed on build)
@@ -44,7 +47,7 @@ let time: number;
 let pickupRequests: travelRequest['pickup'][];
 
 let handleNewPickupRequest: (request: travelRequest['pickup']) => void;
-/** Get the number of second that have passed in the game rounded to 3 decimal places */
+/** Get the number of seconds that have passed in the game rounded to 3 decimal places */
 let getTime: () => number;
 
 const solution: solutionWithExtensions =
@@ -56,18 +59,36 @@ const solution: solutionWithExtensions =
         pickupRequests = [];
         // Add customizations to objects
         const elevators = baseElevators.map((elevator, index) => {
-            let getState = () => ({
-                currentFloor: elevator.currentFloor(),
-                destinationDirection: elevator.destinationDirection(),
-                destinationQueue: [...elevator.destinationQueue], // Array copy
-                loadFactor: elevator.loadFactor(),
-                pressedFloors: elevator.getPressedFloors(),
-            });
-            return Object.assign(elevator, {
-                num: index,
-                getState,
-                previousState: getState(), // Setting Initial State
-            });
+            type elevatorInitFunc<PreviousElevator, NewProp extends keyof elevatorExtensions> =
+                (e: PreviousElevator) => PreviousElevator & Pick<elevatorExtensions, NewProp>
+            const initNum: elevatorInitFunc<elevator, 'num'> =
+                (elevator) => Object.assign(elevator, { num: index });
+            const initGetState: elevatorInitFunc<ReturnType<typeof initNum>, 'getState'> =
+                (elevator) => Object.assign(elevator, {
+                    getState: () => ({
+                        currentFloor: elevator.currentFloor(),
+                        destinationDirection: elevator.destinationDirection(),
+                        destinationQueue: [...elevator.destinationQueue], // Array copy
+                        loadFactor: elevator.loadFactor(),
+                        pressedFloors: elevator.getPressedFloors(),
+                    }),
+                });
+            const initPreviousState: elevatorInitFunc<ReturnType<typeof initGetState>, 'previousState'> =
+                (elevator) => Object.assign(elevator, {
+                    previousState: elevator.getState(), // Setting Initial State
+                });
+            const initClaimRequest: elevatorInitFunc<ReturnType<typeof initPreviousState>, 'claimRequest'> =
+                (elevator) => {
+                    const claimRequest: elevatorExtensions['claimRequest'] = (request) => {
+                        request.claimingElevator = index;
+                        request.claimTime = getTime();
+                        elevator.goToFloor(request.floorNum);
+                    };
+                    return Object.assign(elevator, { claimRequest });
+                };
+            const initRequests: elevatorInitFunc<ReturnType<typeof initClaimRequest>, 'requests'> =
+                (elevator) => Object.assign(elevator, { requests: [] });
+            return initRequests(initClaimRequest(initPreviousState(initGetState(initNum(elevator)))));
         });
         const floors = baseFloors.map((floor, index) => Object.assign(floor, {
             num: index,
@@ -76,9 +97,9 @@ const solution: solutionWithExtensions =
         // Logic
         handleNewPickupRequest = function(request) {
             console.log("New Pickup Request:\n", request);
-            // pickupRequests.push(request);
+            pickupRequests.push(request);
             // If the elevator is currently waiting, make sure it gets the task.
-            elevators[0].goToFloor(request.floorNum);
+            elevators[0].claimRequest(request);
         }
 
         elevators.forEach((elevator) => {
@@ -92,7 +113,7 @@ const solution: solutionWithExtensions =
                 
             });
             elevator.on("stopped_at_floor", (floorNum) => {
-                
+                // elevator.requests.push()
             });
         });
         floors.forEach((floor) => {
