@@ -1,98 +1,116 @@
-import { elevator, floor } from 'interface/api';
+import { elevator as Elevator, floor as Floor } from 'interface/api';
 
-interface elevatorState {
-    currentFloor: ReturnType<elevator['currentFloor']>;
-    destinationDirection: ReturnType<elevator['destinationDirection']>;
-    destinationQueue: elevator['destinationQueue'];
-    pressedFloors: ReturnType<elevator['getPressedFloors']>;
-    loadFactor: ReturnType<elevator['loadFactor']>;
+interface ElevatorState {
+    currentFloor: ReturnType<Elevator['currentFloor']>;
+    destinationDirection: ReturnType<Elevator['destinationDirection']>;
+    destinationQueue: Elevator['destinationQueue'];
+    pressedFloors: ReturnType<Elevator['getPressedFloors']>;
+    loadFactor: ReturnType<Elevator['loadFactor']>;
     [fieldName: string]: number | string | number[];
 }
-interface elevatorExtensions {
+interface ElevatorExtensions {
     /** Convenience function for getting the number of an elevator */
     num: number;
     /** The elevator state as it was in the last call to {@link solution['update']} */
-    previousState: elevatorState;
+    previousState: ElevatorState;
     /** Retrieve the current state of the elevator */
-    getState: () => elevatorState;
-    claimRequest: (request: travelRequest['pickup']) => void;
-    requests: travelRequest[];
+    getState: () => ElevatorState;
+    claimRequest: (request: TravelRequest['pickups'][number]) => void;
+    fulfillPickups: (requests: TravelRequest['pickups'][number][]) => void;
+    requests: TravelRequest[];
 }
-interface floorExtensions {
+interface FloorExtensions {
     /** Convenience function for getting the floor number. ! Not to be modified ! */
     num: number;
 }
-interface solutionWithExtensions {
+interface SolutionWithExtensions {
     /** called when the challenge starts */
-    init: (elevators: elevator[], floors: floor[]) => void;
+    init: (elevators: Elevator[], floors: Floor[]) => void;
     /** called repeatedly during the challenge */
-    update: (dt: number, elevators: (elevator & elevatorExtensions)[], floors: (floor & floorExtensions)[]) => void;
+    update: (dt: number, elevators: (Elevator & ElevatorExtensions)[], floors: (Floor & FloorExtensions)[]) => void;
 }
-interface request {
-    floorNum: number;
+interface request<floorNum extends number = number> {
+    floorNum: floorNum;
     creationTime: number;
-    claimTime?: number;
     fulfillmentTime?: number;
 }
-interface travelRequest {
-    pickup: request & {
+interface TravelRequest<pickupFloor extends number = number> {
+    pickups: (request<pickupFloor> & {
         direction: 'up' | 'down';
+        claimTime?: number;
         claimingElevator?: number;
-    };
+    })[];
     dropoff?: request;
 }
 
 // Global declarations (Here to satisfy typescript; Need to be initialized in init; automatically removed on build)
 let time: number;
-let pickupRequests: travelRequest['pickup'][];
+let pickupRequests: TravelRequest['pickups'];
 
-let handleNewPickupRequest: (request: travelRequest['pickup']) => void;
+let handleNewPickupRequest: (request: TravelRequest['pickups']) => void;
 /** Get the number of seconds that have passed in the game rounded to 3 decimal places */
 let getTime: () => number;
+let assert: (condition: boolean, message: [any, ...any]) => void;
 
-const solution: solutionWithExtensions =
+const solution: SolutionWithExtensions =
 {
     init: function (baseElevators, baseFloors) {
         // Init Globals
         time = 0;
         getTime = () => Math.round(time * 1000) / 1000;
+        assert = (condition, message) => { if (!condition) { console.log("ALERT: ", ...message); window.alert(message); } }
         pickupRequests = [];
         // Add customizations to objects
-        const elevators = baseElevators.map((elevator, index) => {
-            type elevatorInitFunc<PreviousElevator, NewProp extends keyof elevatorExtensions> =
-                (e: PreviousElevator) => PreviousElevator & Pick<elevatorExtensions, NewProp>
-            const initNum: elevatorInitFunc<elevator, 'num'> =
-                (elevator) => Object.assign(elevator, { num: index });
-            const initGetState: elevatorInitFunc<ReturnType<typeof initNum>, 'getState'> =
-                (elevator) => Object.assign(elevator, {
-                    getState: () => ({
-                        currentFloor: elevator.currentFloor(),
-                        destinationDirection: elevator.destinationDirection(),
-                        destinationQueue: [...elevator.destinationQueue], // Array copy
-                        loadFactor: elevator.loadFactor(),
-                        pressedFloors: elevator.getPressedFloors(),
+
+        type ExtendedElevator<InitialElevator extends Elevator, NewProp extends keyof ElevatorExtensions> =
+            InitialElevator & Pick<ElevatorExtensions, NewProp>;
+        type ElevatorInitFn<PreProps extends keyof ElevatorExtensions, PostProps extends keyof ElevatorExtensions> =
+            <T extends ExtendedElevator<Elevator, PreProps>>(e: T) => ExtendedElevator<T, PostProps>;
+        const elevatorExtender: (e: Elevator, i: number) => (Elevator & ElevatorExtensions) = (elevator, elevatorNum) => {
+            const initFns: [
+                ElevatorInitFn<never, 'num' | 'getState' | 'claimRequest' | 'requests'>,
+                ElevatorInitFn<'requests' | 'getState', 'previousState' | 'fulfillPickups'>,
+            ] = [
+                    (elevator) => Object.assign(elevator, {
+                        getState: (() => ({
+                            currentFloor: elevator.currentFloor(),
+                            destinationDirection: elevator.destinationDirection(),
+                            destinationQueue: [...elevator.destinationQueue], // Array copy
+                            loadFactor: elevator.loadFactor(),
+                            pressedFloors: elevator.getPressedFloors(),
+                        })) as ElevatorExtensions['getState'],
+                        claimRequest: ((request) => {
+                            request.claimingElevator = elevatorNum;
+                            request.claimTime = getTime();
+                            elevator.goToFloor(request.floorNum);
+                        }) as ElevatorExtensions['claimRequest'],
+                        num: elevatorNum,
+                        requests: [],
                     }),
-                });
-            const initPreviousState: elevatorInitFunc<ReturnType<typeof initGetState>, 'previousState'> =
-                (elevator) => Object.assign(elevator, {
-                    previousState: elevator.getState(), // Setting Initial State
-                });
-            const initClaimRequest: elevatorInitFunc<ReturnType<typeof initPreviousState>, 'claimRequest'> =
-                (elevator) => {
-                    const claimRequest: elevatorExtensions['claimRequest'] = (request) => {
-                        request.claimingElevator = index;
-                        request.claimTime = getTime();
-                        elevator.goToFloor(request.floorNum);
-                    };
-                    return Object.assign(elevator, { claimRequest });
-                };
-            const initRequests: elevatorInitFunc<ReturnType<typeof initClaimRequest>, 'requests'> =
-                (elevator) => Object.assign(elevator, { requests: [] });
-            return initRequests(initClaimRequest(initPreviousState(initGetState(initNum(elevator)))));
-        });
+                    (elevator) => Object.assign(elevator, {
+                        previousState: elevator.getState(), // Setting Initial State
+                        fulfillPickups: ((requestsToPickUp) => {
+                            // TODO: How do we handle it if not everyone got picked up?
+                            // Remove each pickup request from global list and add it to elevator.requests
+                            requestsToPickUp.forEach((requestToPickUp) => {
+                                elevator.requests.push(
+                                    ...pickupRequests.splice(pickupRequests.findIndex((request) => request === requestToPickUp), 1)
+                                        .map((pickupRequest): TravelRequest => ({
+                                            pickups: [{
+                                                ...pickupRequest,
+                                                fulfillmentTime: getTime(),
+                                            }],
+                                        })));
+                            });
+                        }) as ElevatorExtensions['fulfillPickups'],
+                    }),
+                ];
+            return initFns[1](initFns[0](elevator));
+        };
+        const elevators = baseElevators.map(elevatorExtender);
         const floors = baseFloors.map((floor, index) => Object.assign(floor, {
             num: index,
-        } as floorExtensions));
+        } as FloorExtensions));
 
         // Logic
         handleNewPickupRequest = function(request) {
@@ -107,17 +125,28 @@ const solution: solutionWithExtensions =
                 // floors.forEach((floor) => elevator.goToFloor(floor.floorNum()));
             });
             elevator.on("floor_button_pressed", (floorNum) => {
+                // TODO: add the dropoff request to it
+                // REVISIT: What about if two get on at once? If they're going to the same floor
+                elevator.requests.filter((request) =>
+                    !('dropoff' in request) && 'fulfillmentTime' in request.pickup &&
+                    request.pickup.floorNum === elevator.currentFloor() &&
+                    request.pickup.direction === (floorNum > elevator.currentFloor() ? 'up' : 'down'))
                 elevator.goToFloor(floorNum);
             });
             elevator.on("passing_floor", (floorNum) => {
                 
             });
             elevator.on("stopped_at_floor", (floorNum) => {
-                // elevator.requests.push()
+                const pickupsOnFloor = pickupRequests.filter((request) => request.floorNum === floorNum);
+                const accidentalPickups = pickupsOnFloor.filter((request) => request.claimingElevator !== elevator.num );
+                assert(accidentalPickups.length === 0, [`${accidentalPickups.length} accidental pickup by elevator ${elevator.num}`, accidentalPickups]);
+                // We now know that this elevator is the elevator that claimed all pickupsOnFloor
+                // TODO: Make sure that we didn't fill up and leave some of the pickups
+                
             });
         });
         floors.forEach((floor) => {
-            let createPickupRequest = (direction: travelRequest['pickup']['direction']) => ({
+            let createPickupRequest = (direction: TravelRequest['pickup']['direction']) => ({
                 creationTime: getTime(),
                 direction,
                 floorNum: floor.num,
@@ -141,6 +170,14 @@ const solution: solutionWithExtensions =
                     changedFields.push(fieldName)
                 }
             });
+            if (changedFields.includes('loadFactor')) {
+                // TODO: Update the request loadfactor
+                // Could be multiple passengers, some requesting to go up, some down (impossible to know separation at pickup time)
+                // const currentRequest = elevator.requests.filter((request) =>
+                //     !('dropoff' in request) && 'fulfillmentTime' in request.pickup &&
+                //     request.pickup.floorNum === elevator.currentFloor());
+                // assert(currentRequest.length === 1)
+            }
             changedFields = changedFields.filter((fieldName) => !['currentFloor'].includes(fieldName));
             if (changedFields.length > 0) {
                 console.log(`[${getTime()}]: Elevator (${elevator.num}) changes:\n` + changedFields.map((fieldName) =>

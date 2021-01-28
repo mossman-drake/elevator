@@ -7,10 +7,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "build": "./node_modules/typescript/bin/tsc --project ./",
-    "postbuild": "postcompile",
+    "postbuild": "npm run postcompile",
     "postcompile": "npm run create_solution; npm run create_solution; npm run move_helper; npm run trim_solution; npm run copy_solution",
     "create_solution": "cp solution/elevator.js solution/elevator_solution",
-    "move_helper": "perl -0777 -p -i -e '($helpers,) = m/((var __.*\\n( +.*\\n)+\\};\\n)+)/; ($init, $indent) = m/(solution = \\{\\n *init.*\\{\\n)( *)/; $helpers = join(\"\", split(/var __/, $helpers)); $helpers = join(\"\\n$indent\", split(/\\n/, $helpers)); s/(solution = \\{\\n *init.*\\{\\n)( *)/$1$2$helpers\\n$2/; print;' ./solution/elevator_solution",
+    "move_helper": "perl -0777 -p -i -e '($helpers,) = m/((var __.*\\n( +.*\\n)+\\};\\n)+)/; ($init, $indent) = m/(solution = \\{\\n *init.*\\{\\n)( *)/; $helpers = join(\"__\", split(/var __/, $helpers)); $helpers = join(\"\\n$indent\", split(/\\n/, $helpers)); s/(solution = \\{\\n *init.*\\{\\n)( *)/$1$2$helpers\\n$2/; print;' ./solution/elevator_solution",
     "trim_solution": "perl -0777 -p -i -e 's/(\\A(.|\\n)*solution = |(?<=\\n\\});(.*\\n){1,3}\\Z)//g' solution/elevator_solution",
     "copy_solution": "pbcopy < solution/elevator_solution"
   },
